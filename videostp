@@ -1,1 +1,346 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
 
+<style>
+
+:root {
+  --bg: #121212;
+  --card: #007acc;
+  --accent: #007acc;
+  --text: #fff;
+  --border: #ddd;
+  --radius: 9.8px;
+  --gap: 13.8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0; padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 1200px; margin: 0 auto;
+}
+
+.video-section {
+  margin-bottom: 40px;
+}
+
+.video-section h4 {
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+.form {
+  display: flex; gap: var(--gap);
+  margin-bottom: 20px;
+}
+
+.form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.form button {
+  padding: 8px 16px;
+  border: none;
+  background-color: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.form button:hover { background-color: #005fa3; }
+
+.video-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--gap);
+}
+
+.video-item {
+  display: flex; flex-direction: column; /* Alterado para coluna */
+  align-items: center;
+  background: var(--card);
+  padding: 8px; border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  cursor: grab;
+}
+.video-item:active { cursor: grabbing; }
+
+.video-item img {
+  width: 120px;
+  border-radius: var(--radius);
+  margin-bottom: 10px; /* Margem inferior para espaçamento */
+}
+
+.label-block {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.video-label { font-size: 0.95rem; }
+
+.edit-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.edit-block {
+  display: flex;
+  flex-direction: column; /* Alterado para coluna */
+  align-items: stretch; /* Para ocupar toda a largura */
+  flex: 1;
+}
+
+.edit-input {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 4px; /* Margem inferior para espaçamento */
+}
+
+.edit-buttons {
+  display: flex;
+  justify-content: space-between; /* Para espaçar os botões */
+}
+
+.edit-buttons button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: var(--radius);
+  background-color: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 40px 0;
+}
+
+/* Media Queries for Responsiveness */
+@media (max-width: 768px) {
+  .form {
+    flex-direction: column;
+  }
+
+  .form input {
+    margin-bottom: 10px;
+  }
+
+  .video-item img {
+    width: 100px; /* Ajuste a largura da imagem para telas menores */
+  }
+
+  .video-section {
+    margin-bottom: 20px; /* Reduzir a margem inferior */
+  }
+}
+
+@media (max-width: 480px) {
+  .video-section h4 {
+    font-size: 1rem; /* Reduzir o tamanho da fonte do título */
+  }
+
+  .video-label {
+    font-size: 0.85rem; /* Reduzir o tamanho da fonte do rótulo do vídeo */
+  }
+
+  .video-list {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Ajustar a grade */
+  }
+}
+
+</style>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Galeria de Vídeos</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    function getYouTubeID(url) {
+      const regExp = /^.*(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/))([^&\n?#]+).*/;
+      const match = url.match(regExp);
+      return (match && match[1].length) ? match[1] : null;
+    }
+
+    function VideoSection({ title, storageKey }) {
+      const [videos, setVideos] = React.useState([]);
+      const [name, setName]   = React.useState("");
+      const [url, setUrl]     = React.useState("");
+      const [editingIndex, setEditingIndex] = React.useState(null);
+      const [editingName, setEditingName]   = React.useState("");
+      const [editingUrl, setEditingUrl]     = React.useState(""); // Novo estado para URL
+      const dragItem       = React.useRef();
+      const dragOverItem   = React.useRef();
+
+      React.useEffect(() => {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) setVideos(JSON.parse(saved));
+      }, []);
+
+      React.useEffect(() => {
+        localStorage.setItem(storageKey, JSON.stringify(videos));
+      }, [videos]);
+
+      function handleAdd() {
+        if (!name.trim() || !url.trim()) return;
+        if (videos.length >= 10) {
+          alert("Você já adicionou 10 vídeos nesta seção.");
+          return;
+        }
+        const id = getYouTubeID(url.trim());
+        if (!id) {
+          alert("URL do YouTube inválida.");
+          return;
+        }
+        setVideos([...videos, { id, name: name.trim() }]);
+        setName("");
+        setUrl("");
+      }
+
+      function handleSort() {
+        let items = [...videos];
+        const dragged = items.splice(dragItem.current, 1)[0];
+        items.splice(dragOverItem.current, 0, dragged);
+        setVideos(items);
+        dragItem.current = null;
+        dragOverItem.current = null;
+      }
+
+      function startEdit(i, currentName, currentUrl) {
+        setEditingIndex(i);
+        setEditingName(currentName);
+        setEditingUrl(currentUrl); // Preencher o URL para edição
+      }
+      
+      function saveEdit() {
+        const updated = [...videos];
+        updated[editingIndex].name = editingName.trim() || updated[editingIndex].name;
+        updated[editingIndex].id = getYouTubeID(editingUrl.trim()) || updated[editingIndex].id; // Atualizar o ID com o novo URL
+        setVideos(updated);
+        setEditingIndex(null);
+        setEditingName("");
+        setEditingUrl(""); // Limpar o URL
+      }
+      
+      function cancelEdit() {
+        setEditingIndex(null);
+        setEditingName("");
+        setEditingUrl(""); // Limpar o URL
+      }
+
+      return (
+        <section className="video-section">
+          <h4>{title}</h4>
+          <div className="form">
+            <input
+              type="text"
+              placeholder="Nome do vídeo"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Link do YouTube"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+            />
+            <button onClick={handleAdd}>Adicionar</button>
+          </div>
+
+          <div className="video-list">
+            {videos.map((vid, i) => (
+              <div
+                key={i}
+                className="video-item"
+                draggable
+                onDragStart={() => (dragItem.current = i)}
+                onDragEnter={() => (dragOverItem.current = i)}
+                onDragOver={e => e.preventDefault()}
+                onDragEnd={handleSort}
+              >
+                <a
+                  href={`https://www.youtube.com/watch?v=${vid.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={`https://img.youtube.com/vi/${vid.id}/hqdefault.jpg`}
+                    alt={vid.name}
+                  />
+                </a>
+
+                {editingIndex === i ? (
+                  <div className="edit-block">
+                    <input
+                      className="edit-input"
+                      value={editingName}
+                      onChange={e => setEditingName(e.target.value)}
+                    />
+                    <input
+                      className="edit-input"
+                      value={editingUrl}
+                      onChange={e => setEditingUrl(e.target.value)}
+                      placeholder="Novo link do YouTube"
+                    />
+                    <div className="edit-buttons">
+                      <button onClick={saveEdit}>✔</button>
+                      <button onClick={cancelEdit}>✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="label-block">
+                    <span className="video-label">
+                      {i + 1}. {vid.name}
+                    </span>
+                    <button
+                      className="edit-btn"
+                      onClick={() => startEdit(i, vid.name, `https://www.youtube.com/watch?v=${vid.id}`)} // Passar o URL atual
+                    >✎</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function App() {
+      return (
+        <div className="app">
+          <VideoSection title="Top 10 Shorts" storageKey="videos-secao-1" />
+          <hr/>
+          <VideoSection title="Top 10 youtube horizontais" storageKey="videos-secao-2" />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
